@@ -1,0 +1,15 @@
+#!/bin/bash
+# Here do anything needed to install the service
+# i.e. apt-get install -y foo  or  bzr branch http://myserver/mycode /srv/webroot
+
+
+apt-get -y install python-software-properties debconf debconf-utils
+apt-add-repository ppa:facter-plugins/ppa
+apt-get install -y couchdb facter facter-customfacts-plugin
+
+fact-add couchdb_hostname `facter fqdn`
+fact-add couchdb_ip `facter ipaddress`
+fact-add couchdb_port 5984
+
+sed -i.bak -e "s/bind_address =.*/bind_address = `facter couchdb_ip`/" /etc/couchdb/default.ini
+sed -i.bak -e "s/;port =.*/port = `facter couchdb_port`/" -e "s/;bind_address.*/bind_address = `facter couchdb_ip`/" /etc/couchdb/local.ini
