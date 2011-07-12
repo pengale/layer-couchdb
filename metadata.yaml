@@ -16,9 +16,3 @@ description: |
 provides:
   db:
     interface: couchdb
-requires:
-  relation-name:
-    interface: interface-name
-peers:
-  relation-name:
-    interface: interface-name

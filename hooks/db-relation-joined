@@ -3,5 +3,5 @@
 # affect any change needed by relationships being formed
 # This script should be idempotent.
 
-relation-set host=`facter couchdb_hostname` ip=`facter couchdb_ip`  port=`facter couchdb_port`
+relation-set host=`facter couchdb_hostname` ip=`facter couchdb_ip`  port=`facter couchdb_port` admin=`facter couchdb_admin`
 echo $ENSEMBLE_REMOTE_UNIT joined
