@@ -6,10 +6,10 @@
 apt-get -y install python-software-properties debconf debconf-utils
 apt-add-repository ppa:facter-plugins/ppa
 apt-get -y update
-apt-get install -y couchdb facter facter-customfacts-plugin uuid python-couchdb
+apt-get install -y couchdb facter facter-customfacts-plugin uuid python-couchdb pwgen
 
-DEFAULT_ADMIN_PASSWORD="sekrit"
-DEFAULT_REPLICATION_PASSWORD="r3plicat3"
+DEFAULT_ADMIN_PASSWORD=`pwgen -N1`
+DEFAULT_REPLICATION_PASSWORD=`pwgen -N1`
 
 fact-add couchdb_hostname `facter fqdn`
 fact-add couchdb_ip `facter ipaddress`
