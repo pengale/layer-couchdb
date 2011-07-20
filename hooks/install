@@ -27,3 +27,5 @@ sed -i.bak -e "s/;port =.*/port = `facter couchdb_port`/" \
 echo "replication = ${DEFAULT_REPLICATION_PASSWORD}" >> /etc/couchdb/local.ini
 
 service couchdb status && service couchdb restart || service couchdb start
+
+[ -x `which open-port` ] && open-port `facter couchdb-port`/TCP
