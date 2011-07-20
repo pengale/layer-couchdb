@@ -28,4 +28,4 @@ echo "replication = ${DEFAULT_REPLICATION_PASSWORD}" >> /etc/couchdb/local.ini
 
 service couchdb status && service couchdb restart || service couchdb start
 
-[ -x `which open-port` ] && open-port `facter couchdb-port`/TCP
+[ -x /usr/bin/open-port ] && open-port `facter couchdb-port`/TCP
