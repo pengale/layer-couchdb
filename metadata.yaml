@@ -1,6 +1,5 @@
 ensemble: formula
 name: couchdb
-revision: 1
 summary: RESTful document oriented database, system DB
 description: |
   Apache CouchDB is a distributed, fault-tolerant and schema-free
