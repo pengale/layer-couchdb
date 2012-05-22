@@ -1,5 +1,5 @@
-ensemble: formula
 name: couchdb
+maintainer: Juan Negron <juan.negron@canonical.com>
 summary: RESTful document oriented database, system DB
 description: |
   Apache CouchDB is a distributed, fault-tolerant and schema-free
