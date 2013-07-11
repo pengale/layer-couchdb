@@ -12,6 +12,8 @@ description: |
   make HTTP requests. There are a multitude of third-party client
   libraries that make this even easier for a variety of programming
   languages and environments.
+categories:
+    - databases
 provides:
   db:
     interface: couchdb
