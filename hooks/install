@@ -4,7 +4,7 @@
 
 
 apt-get -y install python-software-properties debconf debconf-utils
-apt-add-repository ppa:facter-plugins/ppa
+apt-add-repository -y ppa:facter-plugins/ppa
 apt-get -y update
 apt-get install -y couchdb facter facter-customfacts-plugin uuid python-couchdb pwgen
 
@@ -28,4 +28,4 @@ echo "replication = ${DEFAULT_REPLICATION_PASSWORD}" >> /etc/couchdb/local.ini
 
 service couchdb status && service couchdb restart || service couchdb start
 
-[ -x /usr/bin/open-port ] && open-port `facter couchdb_port`/TCP
+open-port `facter couchdb_port`/TCP
