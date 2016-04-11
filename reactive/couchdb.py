@@ -41,7 +41,7 @@ def _set_couch_config(config_path="/etc/couchdb"):
 
     # Write out the config we've generated above.
     # TODO: tell configparser to stop clobbering the comments in the
-    # original local.ini and default.ini files, if possible.
+    # original local.ini and default.ini files.
     for conf in COUCH_CONFIGS:
         parser = configparser.ConfigParser()
         file_path = "{}/{}.ini".format(config_path, conf['name'])
@@ -50,6 +50,7 @@ def _set_couch_config(config_path="/etc/couchdb"):
             shutil.copyfile(file_path, "{}.bak".format(file_path))  # Backups are good.
         except(FileNotFoundError):
             # If the file doesn't exist, that's okay. We'll create it below.
+            # TODO: we should probably raise if default.ini doesn't exist.
             pass
         for entry in conf["entries"]:
             if not parser.has_section(entry["section"]):
@@ -98,7 +99,7 @@ def start():
     """
     Start couch, or, in the case where couch is already running, restart couch.
     """
-    if not subprocess.call(['service', 'couchdb', 'status']):
+    if not subprocess.call(['service', 'couchdb', 'status']):  # 'not' because 0 means 'a-okay'
         subprocess.check_call(['service', 'couchdb', 'restart'])
     else:
         subprocess.check_call(['service', 'couchdb', 'start'])
