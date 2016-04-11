@@ -1,8 +1,8 @@
+from shutil import copyfile
 import codecs
+import configparser
 import shutil
 import subprocess
-import configparser
-from shutil import copyfile
 
 from charmhelpers.core.hookenv import open_port, config
 from charmhelpers.fetch import apt_install, add_source, apt_update
@@ -23,29 +23,19 @@ def _set_couch_config(config_path="/etc/couchdb"):
     REPL_PASS = subprocess.check_output(['pwgen', '-N1']).strip().decode('utf-8')
     # TODO: Is there a more "Charming" way of generating passwords?
     COUCH_CONFIGS = [
-        { "name": "local", "sections": [
-            { "name": "httpd", "values": [
-                { "key": "bind_address", "value": config("couchdb-bind-addr") },
-                { "key": "port", "value": str(config("couchdb-port")) },
-            ]},
-            { "name": "couch_httpd_auth", "values": [
-                { "key": "require_valid_user", "value": "true" }
-            ]},
-            { "name": "admins", "values": [
-                { "key": "admin", "value": ADMIN_PASS },
-                { "key": "replication", "value": REPL_PASS },
-            ]}
+        { "name": "local", "entries": [
+            { "section": "httpd", "key": "bind_address", "value": config("couchdb-bind-addr") },
+            { "section": "httpd", "key": "port", "value": str(config("couchdb-port")) },
+            { "section": "couch_httpd_auth", "key": "require_valid_user", "value": "true" },
+            { "section": "admins", "key": "admin", "value": ADMIN_PASS },
+            { "section": "admins", "key": "replication", "value": REPL_PASS },
         ]},
-        { "name": "default", "sections": [
-            { "name": "httpd", "values": [
-                { "key": "bind_address", "value": config("couchdb-bind-addr") },
-            ]}
+        { "name": "default", "entries": [
+            { "section": "httpd", "key": "bind_address", "value": config("couchdb-bind-addr") },
         ]},
-        { "name": "juju_generated", "sections": [
-            {"name": "credentials" , "values": [
-                { "key": "admin_pass", "value": ADMIN_PASS },
-                { "key": "repl_pass", "value": REPL_PASS },
-            ]}
+        { "name": "juju_generated", "entries": [
+            { "section": "creds", "key": "admin_pass", "value": ADMIN_PASS },
+            { "section": "creds", "key": "repl_pass", "value": REPL_PASS },
         ]}
     ]
 
@@ -61,17 +51,11 @@ def _set_couch_config(config_path="/etc/couchdb"):
         except(FileNotFoundError):
             # If the file doesn't exist, that's okay. We'll create it below.
             pass
-        for section in conf['sections']:
-            if not parser.has_section(section['name']):
-                parser.add_section(section['name'])
+        for entry in conf["entries"]:
+            if not parser.has_section(entry["section"]):
+                parser.add_section(entry["section"])
 
-            for value in section['values']:
-                parser.set(section['name'], value["key"], value["value"])
-                # TODO: It would be nicer to flatten the config tree
-                # we generate above, so that we can avoid triple
-                # nesting things here. (Performance isn't really a
-                # concern for something this small, but it rubs me the
-                # wrong way.)
+            parser.set(entry["section"], entry["key"], entry["value"])
 
         with open(file_path, "w") as conf_file:
             parser.write(conf_file)
