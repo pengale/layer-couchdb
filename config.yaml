@@ -1,0 +1,18 @@
+options:
+  couchdb-port:
+    default: "5984"
+    type: int
+    description: "couch's http port"
+  couchdb-bind-addr:
+    default: "0.0.0.0"
+    type: string
+    description: "Bind the server to this IP."
+  couchdb-ip:
+    default: "127.0.0.1"
+    type: string
+    description: "Address couch is running at."
+  couchdb-host:
+    default: "localhost"
+    type: string
+    description: "Coudb's hostname"
+       
