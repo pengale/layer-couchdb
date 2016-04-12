@@ -1,13 +1,17 @@
+"""
+Reactive handlers for our CouchDB Charm.
+
+"""
+
 import codecs
 import configparser
 import shutil
 import subprocess
-from shutil import copyfile
 
-from charmhelpers.core.hookenv import open_port, config, relation_set, relation_get
-from charmhelpers.fetch import apt_install, add_source, apt_update
+from charmhelpers.core.hookenv import open_port, config
+from charmhelpers.fetch import apt_install
 from charms.leadership import leader_set, leader_get
-from charms.reactive import hook, when, not_unless
+from charms.reactive import hook, when, when_any
 
 #
 # Helpers
@@ -20,7 +24,7 @@ def _write_config(config_path, name, entries):
     @param str config_path: Directory containing configs.
     @param str name: Name of the config file (leave out the .ini part)
     @param list entries: A dict of entries to write to the config, in the following format:
-                         { "section": <section_name>, "key": <key name>, "value": <value> }
+                         {'section': <section_name>, 'key': <key name>, 'value': <value>}
                          (Note that all values in the dict must be strings.)
 
     """
@@ -58,12 +62,12 @@ def _write_couch_configs(config_path='/etc/couchdb'):
     """
 
     COUCH_CONFIGS = [
-        { 'name': 'local', 'entries': [
-            { 'section': 'httpd', 'key': 'bind_address', 'value': config('couchdb-bind-addr') },
-            { 'section': 'httpd', 'key': 'port', 'value': str(config('couchdb-port')) },
+        {'name': 'local', 'entries': [
+            {'section': 'httpd', 'key': 'bind_address', 'value': config('couchdb-bind-addr')},
+            {'section': 'httpd', 'key': 'port', 'value': str(config('couchdb-port'))},
         ]},
-        { 'name': 'default', 'entries': [
-            { 'section': 'httpd', 'key': 'bind_address', 'value': config('couchdb-bind-addr') },
+        {'name': 'default', 'entries': [
+            {'section': 'httpd', 'key': 'bind_address', 'value': config('couchdb-bind-addr')},
         ]},
     ]
 
@@ -74,7 +78,7 @@ def _write_couch_configs(config_path='/etc/couchdb'):
 # Handlers
 #
 
-@when("leader-elected")
+@when_any("couchdb.installed", "leader-elected")
 def maybe_generate_passwords():
     """
     If we're the leader, and we haven't generated passwords yet, generate them.
@@ -109,13 +113,13 @@ def end_admin_party(config_path='/etc/couchdb'):
         return
 
     entries = [
-        { 'section': 'admins', 'key': 'admin', 'value': passwords['admin_pass'] },
-        { 'section': 'admins', 'key': 'replication', 'value': passwords['repl_pass'] },
-        { 'section': 'couch_httpd_auth', 'key': 'require_valid_user', 'value': 'true' },
+        {'section': 'admins', 'key': 'admin', 'value': passwords['admin_pass']},
+        {'section': 'admins', 'key': 'replication', 'value': passwords['repl_pass']},
+        {'section': 'couch_httpd_auth', 'key': 'require_valid_user', 'value': 'true'},
         # TODO: get rid of the following section? It's mainly for manual testing, and
         # it does not fit in with couch's security model.
-        { 'section': 'juju_notes', 'key': 'admin_pass', 'value': passwords['admin_pass'] },
-        { 'section': 'juju_notes', 'key': 'repl_pass', 'value': passwords['repl_pass'] },
+        {'section': 'juju_notes', 'key': 'admin_pass', 'value': passwords['admin_pass']},
+        {'section': 'juju_notes', 'key': 'repl_pass', 'value': passwords['repl_pass']},
     ]
     _write_config(config_path, "local", entries)
 

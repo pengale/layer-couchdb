@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 
-import mock
+"""
+Unit(ish) tests for our config helpers and handlers.
+
+"""
+
 import os
 import sys
+
+import mock
 import unittest
 
 # @HACK Since "charm test" does not appear to work with the current
@@ -87,7 +93,7 @@ class TestConfig(unittest.TestCase):
 
         """
         mock_config.return_value = 'foo'
-        
+
         self._expected_files = ['/tmp/local.ini', '/tmp/default.ini']
         for path in self._expected_files:
             with open(path, 'w') as f:
@@ -101,8 +107,7 @@ class TestConfig(unittest.TestCase):
             self.assertTrue(os.path.isfile(path))
 
         # TODO: validate the contents of the config files
-            
+
 
 if __name__ == '__main__':
     unittest.main()
-
