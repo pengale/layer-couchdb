@@ -20,7 +20,78 @@ class TestDeployment(unittest.TestCase):
         except:
             raise
 
-    def test_case(self):
+    def setUp(self):
+        """
+        Pseudocode:
+
+        couch_ip = self.deployment['couchdb/0'].info['public-address']
+        self.couch_host = 'http://{}:5984'.format(couch_ip)
+
+        password = json.loads(self.deployment.leader_get("passwords"))['admin_pass']
+        # TODO: lookup actual command for the above -- can we run leader-get from amulet?
+        self.session = requests.Session(
+            auth=('admin', password),
+            headers={'content-type': 'application/json'})
+
+        """
+
+    def test_couch_is_running(self):
+        """
+        Verify that couch is responsive, and that it is returning the
+        sorts of things we expect when passed basic requests.
+
+        Pseudocode:
+
+        # Verify that we get couch's friendly Welcome message.
+        resp = self.session.get(self.couch_host)
+        resp.raise_for_status()
+        resp_json = resp.json()
+        self.assertTrue('couchdb' in resp_json)
+        self.assertTrue('version' in resp_json)
+
+        # Verify that the default dbs exist.
+        resp = self.session.get('{}/_all_dbs'.format(self.couch_host))
+        resp.raise_for_status()
+        self.assertTrue('_replicator' in resp_json)
+        self.assertTrue('_users' in resp_json)
+
+        """
+
+    def test_create_db(self):
+        """
+        Verify that we can create a test database.
+
+        Pseudocode:
+
+        # Make a DB
+        resp = self.session.post('{}/testdb'.format(self.couch_host))
+        resp.raise_for_status()
+
+        # Verify that the database was created
+        resp = self.session.get('{}/_all_dbs'.format(self.couch_host))
+        resp.raise_for_status()
+        resp_json = resp.json()
+        self.assertTrue('testdb' in resp_json)
+
+        """
+
+    def test_db_relation_joined(self):
+        """
+        Verify that we can connect to couch.
+
+        Pseudocode
+
+        self.deployment.add('some service that uses couch')
+        self.deployent_sentry.wait()
+        # TODO: make some requests to it that verify that we communited the
+                password successfully, and that the service can connect.
+
+        """
+
+    def test_case_exemplar(self):
+        # TODO: clean this up once other tests are written, and you
+        # don't need it as a reference.
+
         # Now you can use self.deployment.sentry.unit[UNIT] to address each of
         # the units and perform more in-depth steps.  You can also reference
         # the first unit as self.unit.
@@ -43,6 +114,7 @@ class TestDeployment(unittest.TestCase):
         # More information on writing Amulet tests can be found at:
         #     https://juju.ubuntu.com/docs/tools-amulet.html
         pass
+
 
 
 if __name__ == '__main__':
