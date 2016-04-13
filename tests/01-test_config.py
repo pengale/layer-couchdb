@@ -8,6 +8,7 @@ Unit(ish) tests for our config helpers and handlers.
 import os
 import sys
 
+import json
 import mock
 import unittest
 
@@ -71,19 +72,31 @@ class TestConfig(unittest.TestCase):
         out a local.ini for now.
 
         """
-        mock_leader_get.return_value = {
+        mock_leader_get.return_value = json.dumps({
             'admin_pass': 'foo',
             'repl_pass': 'bar'
-        }
+        })
         self._expected_files = ['/tmp/local.ini']
-        with open('/tmp/local.ini', 'w') as f:
-            f.write(';Test')
+        with open('/tmp/local.ini', 'w') as local_ini:
+            local_ini.write(';Test')
 
         couchdb.end_admin_party(config_path='/tmp')
 
         for path in self._expected_files:
             self.assertTrue(os.path.exists(path))
             self.assertTrue(os.path.isfile(path))
+
+        # Validate config
+        found = []
+        with open('/tmp/local.ini', 'r') as local_ini:
+            for line in local_ini.readlines():
+                if any(["foo" in line, "bar" in line, "juju_notes" in line]):
+                    self.assertFalse(line.startswith(";"))
+                    found.append(line)
+
+        self.assertEqual(len(found), 5)  # Should have found four
+                                         # passwords and one section
+                                         # heading
 
     @mock.patch('reactive.couchdb.config')
     def test_write_couch_configs(self, mock_config):
@@ -106,7 +119,18 @@ class TestConfig(unittest.TestCase):
             self.assertTrue(os.path.exists(path))
             self.assertTrue(os.path.isfile(path))
 
-        # TODO: validate the contents of the config files
+        # Check to config files, and verify that we wrote the right
+        # stuff to them.
+        found = {}
+        with open('/tmp/local.ini', 'r') as local_ini:
+            for line in local_ini.readlines():
+                if "bind_address" in line:
+                    self.assertFalse(line.startswith(";"))
+                    found['bind_address'] = True
+                if "port" in line:
+                    self.assertFalse(line.startswith(";"))
+                    found['port'] = True
+        self.assertTrue(found.get('bind_address') and found.get('port'))
 
 
 if __name__ == '__main__':

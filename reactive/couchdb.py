@@ -5,6 +5,7 @@ Reactive handlers for our CouchDB Charm.
 
 import codecs
 import configparser
+import json
 import shutil
 import subprocess
 
@@ -43,7 +44,7 @@ def _write_config(config_path, name, entries):
         if not parser.has_section(entry['section']):
             parser.add_section(entry['section'])
 
-    parser.set(entry['section'], entry['key'], entry['value'])
+        parser.set(entry['section'], entry['key'], entry['value'])
 
     # Write it out.
     with open(file_path, 'w') as conf_file:
@@ -78,7 +79,7 @@ def _write_couch_configs(config_path='/etc/couchdb'):
 # Handlers
 #
 
-@when_any("couchdb.installed", "leader-elected")
+@when("leader-elected")
 def maybe_generate_passwords():
     """
     If we're the leader, and we haven't generated passwords yet, generate them.
@@ -89,7 +90,11 @@ def maybe_generate_passwords():
     if not leader_get('passwords'):
         admin_pass = subprocess.check_output(['pwgen', '-N1']).strip().decode('utf-8')
         repl_pass = subprocess.check_output(['pwgen', '-N1']).strip().decode('utf-8')
-        leader_set(passwords={"admin_pass": admin_pass, "repl_pass": repl_pass})
+        leader_set(passwords=json.dumps({"admin_pass": admin_pass, "repl_pass": repl_pass}))
+
+        end_admin_party()  # TODO: figure out why our @when handler
+                           # doesn't automagically trigger, make it
+                           # trigger, then get rid of this manual call.
 
 
 @when("leader-settings-changed")
@@ -112,6 +117,8 @@ def end_admin_party(config_path='/etc/couchdb'):
     if not passwords:
         return
 
+    passwords = json.loads(passwords)
+
     entries = [
         {'section': 'admins', 'key': 'admin', 'value': passwords['admin_pass']},
         {'section': 'admins', 'key': 'replication', 'value': passwords['repl_pass']},
@@ -123,7 +130,7 @@ def end_admin_party(config_path='/etc/couchdb'):
     ]
     _write_config(config_path, "local", entries)
 
-    start()  # TODO: trigger start with a @when hook
+    start()  # TODO: trigger start with an @when hook
 
 
 @hook('install')
@@ -142,6 +149,12 @@ def install():
 
     # Edit config files
     _write_couch_configs()
+
+    # End couch's admin party.
+    maybe_generate_passwords()  # TODO: figure out why our automagic
+                                # doesn't work to trigger this
+                                # handler, and then get rid of this
+                                # manual call.
 
     # Start couch
     start()  # TODO: trigger with an @when hook
@@ -178,7 +191,7 @@ def db_relation_joined():
 
     """
 
-    passwords = leader_get("passwords")
+    passwords = json.loads(leader_get("passwords"))  # TODO: Exception handling.
 
     # TODO: figure out how to get the right values for couchdb-host and couchdb-ip.
     relation_set(
