@@ -44,13 +44,17 @@ class TestConfig(unittest.TestCase):
         for path in self._expected_files:
             os.remove(path)
 
+    @mock.patch('reactive.couchdb.subprocess.check_output')
     @mock.patch('reactive.couchdb.leader_get')
     @mock.patch('reactive.couchdb.leader_set')
-    def test_maybe_generate_passwords(self, mock_leader_set, mock_leader_get):
+    def test_maybe_generate_passwords(self, mock_leader_set, mock_leader_get, mock_check_output):
         """
         Basic tests for maybe_generate_passwords
 
         """
+        # Mock out the return from the call to pwgen
+        mock_check_output.side_effect = [b'foo', b'bar']
+
         # If we already have the passwords set, we shouldn't try to set them.
         mock_leader_get.return_value = True
         couchdb.maybe_generate_passwords()
@@ -61,8 +65,10 @@ class TestConfig(unittest.TestCase):
         couchdb.maybe_generate_passwords()
         self.assertTrue(mock_leader_get.called)
 
-        # TODO: Mock out subprocess and verify that the password dict
-        # gets populated properly.
+        # Verify that we are actually passing on the passwords that we
+        # got from our mock of pwgen.
+        mock_leader_set.assert_called_with(
+            passwords=json.dumps({"admin_pass": "foo", "repl_pass": "bar"}))
 
     @mock.patch('reactive.couchdb.start')
     @mock.patch('reactive.couchdb.leader_get')
@@ -91,10 +97,10 @@ class TestConfig(unittest.TestCase):
         with open('/tmp/local.ini', 'r') as local_ini:
             for line in local_ini.readlines():
                 if any(["foo" in line, "bar" in line, "juju_notes" in line]):
-                    self.assertFalse(line.startswith(";"))
+                    self.assertFalse(line.startswith(";"))  # Should not be commented out.
                     found.append(line)
 
-        self.assertEqual(len(found), 5)  # Should have found four
+        self.assertEqual(len(found), 5)  # We should have found four
                                          # passwords and one section
                                          # heading
 
@@ -119,18 +125,19 @@ class TestConfig(unittest.TestCase):
             self.assertTrue(os.path.exists(path))
             self.assertTrue(os.path.isfile(path))
 
-        # Check to config files, and verify that we wrote the right
+        # Check the config files, and verify that we wrote the right
         # stuff to them.
         found = {}
         with open('/tmp/local.ini', 'r') as local_ini:
             for line in local_ini.readlines():
                 if "bind_address" in line:
-                    self.assertFalse(line.startswith(";"))
+                    self.assertFalse(line.startswith(";"))  # Should not be commented out.
                     found['bind_address'] = True
                 if "port" in line:
-                    self.assertFalse(line.startswith(";"))
+                    self.assertFalse(line.startswith(";"))  # Should not be commented out.
                     found['port'] = True
-        self.assertTrue(found.get('bind_address') and found.get('port'))
+        self.assertTrue(found.get('bind_address'))
+        self.assertTrue(found.get('port'))
 
 
 if __name__ == '__main__':
