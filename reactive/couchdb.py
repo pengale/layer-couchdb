@@ -9,10 +9,10 @@ import json
 import shutil
 import subprocess
 
-from charmhelpers.core.hookenv import open_port, config
+from charmhelpers.core.hookenv import open_port, config, log, DEBUG, WARNING, INFO
 from charmhelpers.fetch import apt_install
 from charms.leadership import leader_set, leader_get
-from charms.reactive import hook, when, when_any
+from charms.reactive import hook, when, when_any, set_state, remove_state, is_state, when_all
 
 #
 # Helpers
@@ -29,6 +29,7 @@ def _write_config(config_path, name, entries):
                          (Note that all values in the dict must be strings.)
 
     """
+    log("Writing {}/{}.ini".format(config_path, name), DEBUG)
     parser = configparser.ConfigParser()
     file_path = '{}/{}.ini'.format(config_path, name)
 
@@ -53,6 +54,8 @@ def _write_config(config_path, name, entries):
     # TODO: tell configparser to stop clobbering the comments in the
     # original file.
 
+    set_state('couchdb.config_updated')  # Trigger restart
+
 def _write_couch_configs(config_path='/etc/couchdb'):
     """
     Edit the default couch config files.
@@ -75,49 +78,36 @@ def _write_couch_configs(config_path='/etc/couchdb'):
     for conf in COUCH_CONFIGS:
         _write_config(config_path, conf['name'], conf['entries'])
 
-#
-# Handlers
-#
 
-@when("leader-elected")
-def maybe_generate_passwords():
+def _maybe_generate_passwords():
     """
-    If we're the leader, and we haven't generated passwords yet, generate them.
-
-    @param string name: The name of the key that will store the password.
+    If the leader hasn't generated passwords yet, generate them.
 
     """
     if not leader_get('passwords'):
         admin_pass = subprocess.check_output(['pwgen', '-N1']).strip().decode('utf-8')
         repl_pass = subprocess.check_output(['pwgen', '-N1']).strip().decode('utf-8')
-        leader_set(passwords=json.dumps({"admin_pass": admin_pass, "repl_pass": repl_pass}))
-
-        end_admin_party()  # TODO: figure out why our @when handler
-                           # doesn't automagically trigger, make it
-                           # trigger, then get rid of this manual call.
+        leader_set(passwords=json.dumps({'admin_pass': admin_pass, 'repl_pass': repl_pass}))
 
 
-@when("leader-settings-changed")
+#
+# Handlers
+#
+
+@when_all('couchdb.installed', 'couchdb.admin_party')
 def end_admin_party(config_path='/etc/couchdb'):
     """
-    Couch starts out in "admin party" mode, which means that anyone
-    can create and edit databases. Once it looks like the leader has
-    generated some passwords, write them out to disk.
+    Couch starts out in 'admin party' mode, which means that anyone
+    can create and edit databases. This routine secures couch, and
+    flags us to restart.
 
     @param str config_path: The location of the config files in the system.
 
-    # TODO: this is not getting triggered. Not sure whether it's an
-    # issue with this hook, with the 'maybe_generate_passwords' hook
-    # above, or with my understanding of how the leadership automagic
-    # works in general.
-
     """
-    passwords = leader_get('passwords')
+    log("Ending the admin party.", DEBUG)
+    _maybe_generate_passwords()
 
-    if not passwords:
-        return
-
-    passwords = json.loads(passwords)
+    passwords = json.loads(leader_get('passwords'))
 
     entries = [
         {'section': 'admins', 'key': 'admin', 'value': passwords['admin_pass']},
@@ -128,9 +118,9 @@ def end_admin_party(config_path='/etc/couchdb'):
         {'section': 'juju_notes', 'key': 'admin_pass', 'value': passwords['admin_pass']},
         {'section': 'juju_notes', 'key': 'repl_pass', 'value': passwords['repl_pass']},
     ]
-    _write_config(config_path, "local", entries)
+    _write_config(config_path, 'local', entries)
 
-    start()  # TODO: trigger start with an @when hook
+    remove_state('couchdb.admin_party')
 
 
 @hook('install')
@@ -148,32 +138,33 @@ def install():
                  'uuid', 'python-couchdb', 'pwgen'])
 
     # Edit config files
-    _write_couch_configs()
+    _write_couch_configs()  # Will set couchdb.config_updated, which should trigger a start.
 
-    # End couch's admin party.
-    maybe_generate_passwords()  # TODO: figure out why our automagic
-                                # doesn't work to trigger this
-                                # handler, and then get rid of this
-                                # manual call.
+    log("Installing couch.")
 
-    # Start couch
-    start()  # TODO: trigger with an @when hook
-
-    # Open the couch port
-    open_port(config('couchdb-port'))
-
+    set_state('couchdb.installed')
+    set_state('couchdb.admin_party')
 
 @hook('start')
+def start_hook():
+    start()
+
+@when_all('couchdb.installed', 'couchdb.config_updated')
 def start():
     """
     Start couch, or, in the case where couch is already running, restart couch.
 
     """
-    if not subprocess.call(['service', 'couchdb', 'status']):  # 'not' because 0 means 'a-okay'
-        subprocess.check_call(['service', 'couchdb', 'restart'])
-    else:
-        subprocess.check_call(['service', 'couchdb', 'start'])
+    log("Starting/Restarting CouchDB", DEBUG)
+    subprocess.check_call(['service', 'couchdb', 'restart'])
 
+    # Remove the 'config_updated' flag, if any
+    if is_state('couchdb.config_updated'):
+        remove_state('couchdb.config_updated')
+
+    open_port(config('couchdb-port'))
+
+    set_state('couchdb.started')
 
 @hook('stop')
 def stop():
@@ -182,6 +173,7 @@ def stop():
 
     """
     subprocess.check_call(['service', 'couchdb', 'stop'])
+    remove_state('couchdb.running')
 
 
 @hook('db-relation-joined')
@@ -191,7 +183,7 @@ def db_relation_joined():
 
     """
 
-    passwords = json.loads(leader_get("passwords"))  # TODO: Exception handling.
+    passwords = json.loads(leader_get('passwords'))  # TODO: Exception handling.
 
     # TODO: figure out how to get the right values for couchdb-host and couchdb-ip.
     relation_set(

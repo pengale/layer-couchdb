@@ -49,7 +49,7 @@ class TestConfig(unittest.TestCase):
     @mock.patch('reactive.couchdb.leader_set')
     def test_maybe_generate_passwords(self, mock_leader_set, mock_leader_get, mock_check_output):
         """
-        Basic tests for maybe_generate_passwords
+        Basic tests for _maybe_generate_passwords
 
         """
         # Mock out the return from the call to pwgen
@@ -57,12 +57,12 @@ class TestConfig(unittest.TestCase):
 
         # If we already have the passwords set, we shouldn't try to set them.
         mock_leader_get.return_value = True
-        couchdb.maybe_generate_passwords()
+        couchdb._maybe_generate_passwords()
         self.assertFalse(mock_leader_set.called)
 
         # If we don't have passwords set, we should set them.
         mock_leader_get.return_value = False
-        couchdb.maybe_generate_passwords()
+        couchdb._maybe_generate_passwords()
         self.assertTrue(mock_leader_get.called)
 
         # Verify that we are actually passing on the passwords that we
