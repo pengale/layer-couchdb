@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+
+"""
+Unit(ish) tests for our config helpers and handlers.
+
+"""
+
+import os
+import sys
+
+import json
+import mock
+import unittest
+
+# @HACK Since "charm test" does not appear to work with the current
+# devel version of juju2, we are going to do terrible things to our
+# environment and path in order to make the tests runnable in our
+# devel dir. This hack should not make it into production code!
+if not "reactive" in os.listdir() and not "tests" in os.listdir():
+    # This is a hack, but that doesn't mean we shouldn't drop
+    # any dev running this a polite hint about why the hack is
+    # breaking, if it breaks.
+    raise Exception(
+        "This test will not run unless you start it from the root of the charm.")
+
+sys.path.append(os.getcwd())
+# END @HACK
+
+from reactive import couchdb
+
+class TestConfig(unittest.TestCase):
+    """
+    Test our config helper to verify that it does the right thing.
+
+    """
+
+    def setUp(self):
+        self._expected_files = []  # tearDown will use this list. Any
+                                   # tests that create files should
+                                   # populate it.
+
+    def tearDown(self):
+        # Clean up any created files
+        for path in self._expected_files:
+            os.remove(path)
+
+    @mock.patch('reactive.couchdb.subprocess.check_output')
+    @mock.patch('reactive.couchdb.leader_get')
+    @mock.patch('reactive.couchdb.leader_set')
+    def test_maybe_generate_passwords(self, mock_leader_set, mock_leader_get, mock_check_output):
+        """
+        Basic tests for _maybe_generate_passwords
+
+        """
+        # Mock out the return from the call to pwgen
+        mock_check_output.side_effect = [b'foo', b'bar']
+
+        # If we already have the passwords set, we shouldn't try to set them.
+        mock_leader_get.return_value = True
+        couchdb._maybe_generate_passwords()
+        self.assertFalse(mock_leader_set.called)
+
+        # If we don't have passwords set, we should set them.
+        mock_leader_get.return_value = False
+        couchdb._maybe_generate_passwords()
+        self.assertTrue(mock_leader_get.called)
+
+        # Verify that we are actually passing on the passwords that we
+        # got from our mock of pwgen.
+        mock_leader_set.assert_called_with(
+            passwords=json.dumps({"admin_pass": "foo", "repl_pass": "bar"}))
+
+    @mock.patch('reactive.couchdb.config')
+    @mock.patch('reactive.couchdb.start')
+    @mock.patch('reactive.couchdb.leader_get')
+    def test_end_admin_party(self, mock_leader_get, mock_start, mock_config):
+        """
+        Cursory test for end_admin_party -- just verify that it writes
+        out a local.ini for now.
+
+        """
+        mock_leader_get.return_value = json.dumps({
+            'admin_pass': 'foo',
+            'repl_pass': 'bar'
+        })
+        mock_config.return_value = True  # Write human auditable vals
+        self._expected_files = ['/tmp/local.ini']
+        with open('/tmp/local.ini', 'w') as local_ini:
+            local_ini.write(';Test')
+
+        couchdb.end_admin_party(config_path='/tmp')
+
+        for path in self._expected_files:
+            self.assertTrue(os.path.exists(path))
+            self.assertTrue(os.path.isfile(path))
+
+        # Validate config
+        found = []
+        with open('/tmp/local.ini', 'r') as local_ini:
+            for line in local_ini.readlines():
+                if any(["foo" in line, "bar" in line, "juju_notes" in line]):
+                    self.assertFalse(line.startswith(";"))  # Should not be commented out.
+                    found.append(line)
+
+        self.assertEqual(len(found), 5)  # We should have found four
+                                         # passwords and one section
+                                         # heading
+
+    @mock.patch('reactive.couchdb.config')
+    def test_write_couch_configs(self, mock_config):
+        """
+        Test to verify that our _write_couch_configs routine writes files
+        to the right place.
+
+        """
+        mock_config.return_value = 'foo'
+
+        self._expected_files = ['/tmp/local.ini', '/tmp/default.ini']
+        for path in self._expected_files:
+            with open(path, 'w') as f:
+                f.write(';Test')
+        self._expected_files.append('/tmp/local.ini.bak')
+        self._expected_files.append('/tmp/default.ini.bak')
+
+        couchdb._write_couch_configs(config_path='/tmp')
+        for path in self._expected_files:
+            self.assertTrue(os.path.exists(path))
+            self.assertTrue(os.path.isfile(path))
+
+        # Check the config files, and verify that we wrote the right
+        # stuff to them.
+        found = {}
+        with open('/tmp/local.ini', 'r') as local_ini:
+            for line in local_ini.readlines():
+                if "bind_address" in line:
+                    self.assertFalse(line.startswith(";"))  # Should not be commented out.
+                    found['bind_address'] = True
+                if "port" in line:
+                    self.assertFalse(line.startswith(";"))  # Should not be commented out.
+                    found['port'] = True
+        self.assertTrue(found.get('bind_address'))
+        self.assertTrue(found.get('port'))
+
+
+if __name__ == '__main__':
+    unittest.main()
