@@ -1,6 +1,6 @@
 options:
   couchdb-port:
-    default: "5984"
+    default: 5984
     type: int
     description: "CouchDB's http port"
   couchdb-bind-addr:
@@ -15,4 +15,8 @@ options:
     default: "localhost"
     type: string
     description: "CouchDB's hostname"
+  human-auditable-creds:
+    default: true
+    type: boolean
+    description: "Record a human readable version of admin passwords in local.ini. Great for testing. Should be disabled for production."
        

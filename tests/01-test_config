@@ -70,9 +70,10 @@ class TestConfig(unittest.TestCase):
         mock_leader_set.assert_called_with(
             passwords=json.dumps({"admin_pass": "foo", "repl_pass": "bar"}))
 
+    @mock.patch('reactive.couchdb.config')
     @mock.patch('reactive.couchdb.start')
     @mock.patch('reactive.couchdb.leader_get')
-    def test_end_admin_party(self, mock_leader_get, mock_start):
+    def test_end_admin_party(self, mock_leader_get, mock_start, mock_config):
         """
         Cursory test for end_admin_party -- just verify that it writes
         out a local.ini for now.
@@ -82,6 +83,7 @@ class TestConfig(unittest.TestCase):
             'admin_pass': 'foo',
             'repl_pass': 'bar'
         })
+        mock_config.return_value = True  # Write human auditable vals
         self._expected_files = ['/tmp/local.ini']
         with open('/tmp/local.ini', 'w') as local_ini:
             local_ini.write(';Test')

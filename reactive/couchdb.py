@@ -9,7 +9,8 @@ import json
 import shutil
 import subprocess
 
-from charmhelpers.core.hookenv import open_port, config, log, DEBUG, WARNING, INFO
+from charmhelpers.core.hookenv import (open_port, config, log, DEBUG, WARNING, INFO,
+                                       unit_public_ip)
 from charmhelpers.fetch import apt_install
 from charms.leadership import leader_set, leader_get
 from charms.reactive import hook, when, when_any, set_state, remove_state, is_state, when_all
@@ -113,11 +114,12 @@ def end_admin_party(config_path='/etc/couchdb'):
         {'section': 'admins', 'key': 'admin', 'value': passwords['admin_pass']},
         {'section': 'admins', 'key': 'replication', 'value': passwords['repl_pass']},
         {'section': 'couch_httpd_auth', 'key': 'require_valid_user', 'value': 'true'},
-        # TODO: get rid of the following section? It's mainly for manual testing, and
-        # it does not fit in with couch's security model.
-        {'section': 'juju_notes', 'key': 'admin_pass', 'value': passwords['admin_pass']},
-        {'section': 'juju_notes', 'key': 'repl_pass', 'value': passwords['repl_pass']},
     ]
+    if config("human-auditable-creds"):
+        entries += [
+            {'section': 'juju_notes', 'key': 'admin_pass', 'value': passwords['admin_pass']},
+            {'section': 'juju_notes', 'key': 'repl_pass', 'value': passwords['repl_pass']},
+        ]
     _write_config(config_path, 'local', entries)
 
     remove_state('couchdb.admin_party')
@@ -184,18 +186,12 @@ def db_relation_joined():
 
     passwords = json.loads(leader_get('passwords'))  # TODO: Exception handling.
 
-    # TODO: figure out how to get the right values for couchdb-host and couchdb-ip.
     relation_set(
         host=config('couchdb-host'),
-        ip=config('couchdb-ip'),
+        ip=unit_public_ip(),
         port=config('couchdb-port'),
         admin_pass=passwords['admin_pass'],
         repl_pass=passwords['repl_pass']
     )
 
-    # TODO: Figure out what this was meant to do, and convert to more purely Python equivalent.
-    subprocess.check_call([
-        'echo',
-        '$ENSEMBLE_REMOTE_UNIT',
-        'joined'
-    ])
+    log("{} joined".format(os.getenv('ENSEMBLE_REMOTE_UNIT')), INFO)
