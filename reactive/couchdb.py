@@ -132,6 +132,7 @@ def install():
     handle it elsewhere.
 
     """
+    log("Installing CouchDB.", DEBUG)
     # Install packages
     # TODO: audit these packages. I don't think that all of them are necessary.
     apt_install(['python-software-properties', 'debconf', 'debconf-utils', 'couchdb',
@@ -139,8 +140,6 @@ def install():
 
     # Edit config files
     _write_couch_configs()  # Will set couchdb.config_updated, which should trigger a start.
-
-    log("Installing couch.")
 
     set_state('couchdb.installed')
     set_state('couchdb.admin_party')
